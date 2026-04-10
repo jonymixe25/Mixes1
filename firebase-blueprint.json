@@ -1,0 +1,79 @@
+{
+  "entities": {
+    "NewsItem": {
+      "title": "NewsItem",
+      "description": "A news article published by admins",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Title of the news article" },
+        "content": { "type": "string", "description": "Main content of the article" },
+        "author": { "type": "string", "description": "Name of the author" },
+        "date": { "type": "string", "format": "date-time", "description": "ISO 8601 date string" },
+        "imageUrl": { "type": "string", "description": "Optional image URL" },
+        "videoUrl": { "type": "string", "description": "Optional video URL" }
+      },
+      "required": ["title", "content", "author", "date"]
+    },
+    "CommunityVideo": {
+      "title": "CommunityVideo",
+      "description": "A video shared by the community",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Title of the video" },
+        "author": { "type": "string", "description": "Name of the author" },
+        "thumbnail": { "type": "string", "description": "URL of the video thumbnail" },
+        "price": { "type": "string", "description": "Price or suggested donation" },
+        "video_url": { "type": "string", "description": "URL of the video file" }
+      },
+      "required": ["title", "author", "thumbnail", "price", "video_url"]
+    },
+    "TeamMember": {
+      "title": "TeamMember",
+      "description": "A member of the Vida Mixe TV team",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Full name of the team member" },
+        "role": { "type": "string", "description": "Role or position" },
+        "bio": { "type": "string", "description": "Short biography" },
+        "image": { "type": "string", "description": "Profile image URL" },
+        "icon": { "type": "string", "description": "Lucide icon name" },
+        "linkedin": { "type": "string", "description": "Optional LinkedIn URL" },
+        "twitter": { "type": "string", "description": "Optional Twitter URL" },
+        "github": { "type": "string", "description": "Optional GitHub URL" },
+        "email": { "type": "string", "description": "Optional email address" }
+      },
+      "required": ["name", "role", "bio", "image", "icon"]
+    },
+    "User": {
+      "title": "User",
+      "description": "A user profile with role-based access",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "description": "User email address" },
+        "role": { "type": "string", "enum": ["admin", "user"], "description": "User role" },
+        "displayName": { "type": "string", "description": "Display name" },
+        "photoURL": { "type": "string", "description": "Profile photo URL" }
+      },
+      "required": ["uid", "email", "role"]
+    }
+  },
+  "firestore": {
+    "news": {
+      "schema": { "$ref": "#/entities/NewsItem" },
+      "description": "Collection of news articles"
+    },
+    "community_videos": {
+      "schema": { "$ref": "#/entities/CommunityVideo" },
+      "description": "Collection of community videos"
+    },
+    "team": {
+      "schema": { "$ref": "#/entities/TeamMember" },
+      "description": "Collection of team members"
+    },
+    "users": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Collection of user profiles and roles"
+    }
+  }
+}

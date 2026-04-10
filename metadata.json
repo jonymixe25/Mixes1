@@ -1,0 +1,9 @@
+{
+  "name": "Remix: Vida Mixe TV | vidamixe.mx",
+  "description": "Plataforma oficial de Vida Mixe TV (vidamixe.mx). Conectando a la comunidad Ayuuk a través de transmisiones en vivo, noticias y herramientas de traducción bilingüe.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
