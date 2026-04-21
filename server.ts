@@ -173,8 +173,10 @@ async function startServer() {
       const apiKey = process.env.LIVEKIT_API_KEY;
       const apiSecret = process.env.LIVEKIT_API_SECRET;
 
+      console.log(`Diagnóstico LiveKit: API_KEY existe: ${!!apiKey}, API_SECRET existe: ${!!apiSecret}`);
+
       if (!apiKey || !apiSecret) {
-        throw new Error("LiveKit API Key or Secret not configured");
+        throw new Error(`LiveKit API Key or Secret not configured. Key present: ${!!apiKey}, Secret present: ${!!apiSecret}`);
       }
 
       const at = new AccessToken(apiKey, apiSecret, {
