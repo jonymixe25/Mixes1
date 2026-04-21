@@ -166,7 +166,14 @@ async function startServer() {
       const apiSecret = process.env.LIVEKIT_API_SECRET;
 
       if (!apiKey || !apiSecret) {
-        throw new Error("LiveKit API Key or Secret not configured");
+        console.error("DEBUG: LIVEKIT_API_KEY o LIVEKIT_API_SECRET no están configurados en el servidor.");
+        return res.status(500).json({ 
+          error: "Credenciales de LiveKit no encontradas. Por favor, configura LIVEKIT_API_KEY y LIVEKIT_API_SECRET en tus Ajustes (Settings) de AI Studio." 
+        });
+      }
+
+      if (!roomName) {
+        return res.status(400).json({ error: "El nombre de la sala (roomName) es requerido." });
       }
 
       const at = new AccessToken(apiKey, apiSecret, {
@@ -176,7 +183,7 @@ async function startServer() {
       at.addGrant({
         roomJoin: true,
         room: roomName,
-        canPublish: isBroadcaster,
+        canPublish: !!isBroadcaster,
         canSubscribe: true,
       });
 
@@ -185,9 +192,9 @@ async function startServer() {
         token, 
         serverUrl: process.env.LIVEKIT_URL || 'wss://new-app-6tu2ilh8.livekit.cloud' 
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error generating token:", error);
-      res.status(500).json({ error: "Failed to generate token" });
+      res.status(500).json({ error: `Error al generar token de video: ${error.message}` });
     }
   });
 
