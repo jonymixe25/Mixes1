@@ -13,14 +13,23 @@ const __dirname = path.dirname(__filename);
 async function startServer() {
   const app = express();
   
+  const allowedOrigins = [
+    "https://vidamixe.mx", 
+    "https://www.vidamixe.mx", 
+    "https://app-new-production-1af2.up.railway.app",
+    "http://localhost:3000",
+    process.env.APP_URL
+  ].filter(Boolean) as string[];
+  
   // Enable CORS for all routes
   app.use(cors({
-    origin: [
-      "https://vidamixe.mx", 
-      "https://www.vidamixe.mx", 
-      "https://app-new-production-1af2.up.railway.app",
-      "http://localhost:3000"
-    ],
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin) || origin.includes("ais-dev-") || origin.includes("ais-pre-")) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     methods: ["GET", "POST", "OPTIONS"],
     credentials: true
   }));
@@ -31,13 +40,13 @@ async function startServer() {
   
   const io = new Server(httpServer, {
     cors: {
-      origin: [
-        "https://vidamixe.mx", 
-        "https://www.vidamixe.mx", 
-        "https://app-new-production-1af2.up.railway.app",
-        "http://localhost:3000", 
-        "*"
-      ],
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin) || origin.includes("ais-dev-") || origin.includes("ais-pre-")) {
+          callback(null, true);
+        } else {
+          callback(new Error("Not allowed by CORS"));
+        }
+      },
       methods: ["GET", "POST"]
     },
     pingTimeout: 60000,
@@ -88,6 +97,23 @@ async function startServer() {
       emitUserList();
     });
 
+    // Signaling for 1v1 Calls
+    socket.on("call_user", ({ to, fromName }) => {
+      io.to(to).emit("incoming_call", { from: socket.id, fromName });
+    });
+
+    socket.on("accept_call", ({ to, roomName }) => {
+      io.to(to).emit("call_accepted", { from: socket.id, roomName });
+    });
+
+    socket.on("reject_call", ({ to }) => {
+      io.to(to).emit("call_rejected", { from: socket.id });
+    });
+
+    socket.on("end_call", ({ to }) => {
+      io.to(to).emit("call_ended", { from: socket.id });
+    });
+
     socket.on("chat_message", (message) => {
       chatHistory.push(message);
       if (chatHistory.length > 100) chatHistory.shift(); // Keep last 100 messages
@@ -111,24 +137,6 @@ async function startServer() {
         activeBroadcasters.delete(socket.id);
         io.emit("broadcaster_list", Array.from(activeBroadcasters.values()));
       }
-    });
-
-    // Private Signaling
-    socket.on("join_room", (roomId: string) => {
-      socket.join(roomId);
-      console.log(`Socket ${socket.id} joined room ${roomId}`);
-    });
-
-    socket.on("offer", (data: { target: string, caller: string, sdp: any }) => {
-      io.to(data.target).emit("offer", { caller: socket.id, sdp: data.sdp, callerUid: data.caller });
-    });
-
-    socket.on("answer", (data: { target: string, sdp: any }) => {
-      io.to(data.target).emit("answer", { answerer: socket.id, sdp: data.sdp });
-    });
-
-    socket.on("ice-candidate", (data: { target: string, candidate: any }) => {
-      io.to(data.target).emit("ice-candidate", { candidate: data.candidate, from: socket.id });
     });
 
     socket.on("disconnect", () => {
@@ -162,8 +170,12 @@ async function startServer() {
   app.post("/api/livekit/token", async (req, res) => {
     try {
       const { roomName, participantName, isBroadcaster } = req.body;
-      const apiKey = process.env.LIVEKIT_API_KEY || 'APISBhav5rpQHrE';
-      const apiSecret = process.env.LIVEKIT_API_SECRET || 'eJnJBce2ysaavhaIJALPN10WfFFA6UqCfY9OJiOVvd4B';
+      const apiKey = process.env.LIVEKIT_API_KEY;
+      const apiSecret = process.env.LIVEKIT_API_SECRET;
+
+      if (!apiKey || !apiSecret) {
+        throw new Error("LiveKit API Key or Secret not configured");
+      }
 
       const at = new AccessToken(apiKey, apiSecret, {
         identity: participantName || `user-${Math.floor(Math.random() * 10000)}`,
@@ -210,7 +222,6 @@ async function startServer() {
 }
 
 startServer().catch(err => {
-  console.error("CRITICAL: Failed to start server!");
-  console.error(err);
+  console.error("Failed to start server:", err);
   process.exit(1);
 });

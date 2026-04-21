@@ -1,12 +1,16 @@
 import React, { useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { Room, RoomEvent, Track } from "livekit-client";
-import { MonitorPlay, Users, MessageSquare, Send, Heart, Share2, Volume2, VolumeX, Maximize2, RefreshCw, Play, Pause, Minimize2, X, HelpCircle } from "lucide-react";
+import { MonitorPlay, Users, MessageSquare, Send, Heart, Share2, Volume2, VolumeX, Maximize2, RefreshCw, Play, Pause, Minimize2, X, HelpCircle, PhoneCall } from "lucide-react";
 import { Helmet } from "react-helmet-async";
 import { motion, AnimatePresence } from "motion/react";
+import { useSocket } from "../contexts/SocketContext";
+import { useUser } from "../contexts/UserContext";
 import Chat from "../components/Chat";
 
 export default function View() {
+  const { user } = useUser();
+  const { socket, connected: socketConnected } = useSocket();
   const [broadcasters, setBroadcasters] = useState<any[]>([]);
   const [selectedBroadcaster, setSelectedBroadcaster] = useState<any>(null);
   const [viewers, setViewers] = useState(0);
@@ -58,18 +62,13 @@ export default function View() {
   };
 
   useEffect(() => {
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || "https://app-new-production-1af2.up.railway.app";
-    const socket = io(backendUrl);
-    socketRef.current = socket;
+    if (!socket) return;
 
-    socket.on("connect", () => setSocketStatus("connected"));
-    socket.on("disconnect", () => setSocketStatus("disconnected"));
-    socket.on("connect_error", () => setSocketStatus("disconnected"));
-
-    socket.on("broadcaster_list", (list: any[]) => {
+    const handleBroadcasterList = (list: any[]) => {
       setBroadcasters(list);
-    });
+    };
 
+    socket.on("broadcaster_list", handleBroadcasterList);
     socket.emit("get_broadcasters");
 
     socket.on("viewers_count", (count: number) => {
@@ -83,25 +82,32 @@ export default function View() {
       }
     });
 
+    if (user) {
+      socket.emit("register_user", user.name);
+      setIsRegistered(true);
+      setUsername(user.name);
+    }
+
     return () => {
-      socket.disconnect();
+      socket.off("broadcaster_list", handleBroadcasterList);
+      socket.off("viewers_count");
+      socket.off("disconnectPeer");
       if (roomRef.current) {
         roomRef.current.disconnect();
       }
     };
-  }, []);
+  }, [socket, user]);
 
   const joinStream = async (broadcaster: any) => {
     setSelectedBroadcaster(broadcaster);
-    socketRef.current?.emit("watcher", broadcaster.id);
+    socket?.emit("watcher", broadcaster.id);
 
     if (roomRef.current) {
       roomRef.current.disconnect();
     }
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "https://app-new-production-1af2.up.railway.app";
-      const response = await fetch(`${backendUrl}/api/livekit/token`, {
+      const response = await fetch(`/api/livekit/token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -126,7 +132,7 @@ export default function View() {
         }
       });
 
-      await room.connect('wss://new-app-6tu2ilh8.livekit.cloud', token);
+      await room.connect(import.meta.env.VITE_LIVEKIT_URL || 'wss://new-app-6tu2ilh8.livekit.cloud', token);
     } catch (error: any) {
       console.error("Error joining stream:", error);
       alert(`Error al conectar con el servidor de video: ${error.message || error}`);
@@ -142,7 +148,7 @@ export default function View() {
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim()) return;
-    socketRef.current?.emit("register_user", username);
+    socket?.emit("register_user", username);
     setIsRegistered(true);
   };
 
@@ -398,8 +404,8 @@ export default function View() {
                       {viewers}
                     </div>
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-bold text-white shadow-xl" title="Estado del Servidor">
-                      <div className={`w-1.5 h-1.5 rounded-full ${socketStatus === 'connected' ? 'bg-emerald-500' : socketStatus === 'connecting' ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'}`} />
-                      <span className="capitalize">{socketStatus === 'connected' ? 'Conectado' : socketStatus === 'connecting' ? 'Conectando...' : 'Desconectado'}</span>
+                      <div className={`w-1.5 h-1.5 rounded-full ${socketConnected ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                      <span className="capitalize">{socketConnected ? 'Conectado' : 'Conectando...'}</span>
                     </div>
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-bold text-emerald-400 shadow-xl" title="Calidad de Recepción">
                       <div className="flex items-end gap-[1px] h-2.5">
@@ -455,6 +461,18 @@ export default function View() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
+                  <button 
+                    onClick={() => {
+                      if (selectedBroadcaster) {
+                        socket?.emit("call_user", { to: selectedBroadcaster.id, fromName: username || "Espectador" });
+                        alert("Llamando a la estación...");
+                      }
+                    }}
+                    className="flex items-center gap-2 px-6 py-3 bg-brand-primary text-white rounded-full font-bold hover:bg-brand-primary/80 transition-all shadow-lg"
+                  >
+                    <PhoneCall className="w-5 h-5" />
+                    Llamar
+                  </button>
                   <button 
                     onClick={() => setIsLiked(!isLiked)}
                     className={`flex items-center gap-2 px-6 py-3 rounded-full font-bold transition-all ${isLiked ? 'bg-red-500 text-white' : 'bg-white/5 text-neutral-400 hover:bg-white/10'}`}
@@ -545,9 +563,8 @@ export default function View() {
               </div>
             </div>
 
-            {/* Chat */}
             <div className="flex-1 flex flex-col overflow-hidden">
-              <Chat socket={socketRef.current} isHost={false} />
+              <Chat socket={socket} isHost={false} />
             </div>
           </div>
         </div>

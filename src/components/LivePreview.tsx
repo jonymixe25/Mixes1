@@ -17,8 +17,7 @@ export default function LivePreview() {
   const roomRef = useRef<Room | null>(null);
 
   useEffect(() => {
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || "https://app-new-production-1af2.up.railway.app";
-    const socket = io(backendUrl);
+    const socket = io();
 
     socket.on("broadcaster_list", (list: any[]) => {
       if (list.length > 0) {
@@ -50,8 +49,7 @@ export default function LivePreview() {
     if (broadcaster && !roomRef.current) {
       const connectToRoom = async () => {
         try {
-          const backendUrl = import.meta.env.VITE_BACKEND_URL || "https://app-new-production-1af2.up.railway.app";
-          const response = await fetch(`${backendUrl}/api/livekit/token`, {
+          const response = await fetch(`/api/livekit/token`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -73,7 +71,7 @@ export default function LivePreview() {
             }
           });
 
-          await room.connect('wss://new-app-6tu2ilh8.livekit.cloud', token);
+          await room.connect(import.meta.env.VITE_LIVEKIT_URL || 'wss://new-app-6tu2ilh8.livekit.cloud', token);
         } catch (error) {
           console.error("Error connecting to LiveKit room for preview:", error);
         }
