@@ -14,6 +14,8 @@ async function startServer() {
   const app = express();
   
   const allowedOrigins = [
+    "https://sexmixe.lat",
+    "https://www.sexmixe.lat",
     "https://vidamixe.mx", 
     "https://www.vidamixe.mx", 
     "https://app-new-production-1af2.up.railway.app",
