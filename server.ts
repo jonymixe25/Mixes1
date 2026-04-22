@@ -26,9 +26,16 @@ async function startServer() {
   // Enable CORS for all routes
   app.use(cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin) || origin.includes("ais-dev-") || origin.includes("ais-pre-")) {
+      console.log("CORS Request Origin:", origin);
+      if (!origin || 
+          allowedOrigins.includes(origin) || 
+          origin.includes(".sexmixe.lat") ||
+          origin.includes("sexmixe.lat") ||
+          origin.includes("ais-dev-") || 
+          origin.includes("ais-pre-")) {
         callback(null, true);
       } else {
+        console.error("CORS Blocked Origin:", origin);
         callback(new Error("Not allowed by CORS"));
       }
     },
@@ -42,17 +49,10 @@ async function startServer() {
   
   const io = new Server(httpServer, {
     cors: {
-      origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin) || origin.includes("ais-dev-") || origin.includes("ais-pre-")) {
-          callback(null, true);
-        } else {
-          callback(new Error("Not allowed by CORS"));
-        }
-      },
+      origin: "*",
       methods: ["GET", "POST"]
     },
-    pingTimeout: 60000,
-    pingInterval: 25000
+    transports: ["polling", "websocket"]
   });
 
   // Almacenar broadcasters: socket.id -> { id, name, viewers }
@@ -67,7 +67,8 @@ async function startServer() {
   };
 
   io.on("connection", (socket) => {
-    console.log("Client connected:", socket.id);
+    console.log(">>> [SERVER] Nuevo cliente conectado:", socket.id);
+    console.log(">>> [SERVER] Query:", socket.handshake.query);
     socket.on("broadcaster", (streamName: string) => {
       activeBroadcasters.set(socket.id, { 
         id: socket.id, 
@@ -167,6 +168,12 @@ async function startServer() {
   app.get("/api/health", (req, res) => {
     console.log("GET /api/health");
     res.json({ status: "ok" });
+  });
+
+  app.get("/api/config", (req, res) => {
+    res.json({
+      liveKitUrl: process.env.VITE_LIVEKIT_URL || process.env.LIVEKIT_URL || ""
+    });
   });
 
   app.post("/api/livekit/token", async (req, res) => {

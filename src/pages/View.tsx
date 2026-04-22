@@ -132,7 +132,24 @@ export default function View() {
         }
       });
 
-      await room.connect(import.meta.env.VITE_LIVEKIT_URL || 'wss://new-app-6tu2ilh8.livekit.cloud', token);
+      let liveKitUrl = import.meta.env.VITE_LIVEKIT_URL;
+      if (!liveKitUrl) {
+        console.log("VITE_LIVEKIT_URL no encontrada en el cliente, obteniendo del servidor...");
+        try {
+          const configRes = await fetch('/api/config');
+          const configData = await configRes.json();
+          liveKitUrl = configData.liveKitUrl;
+        } catch (confErr) {
+          console.error("Error al obtener configuración del servidor:", confErr);
+        }
+      }
+
+      if (!liveKitUrl) {
+        throw new Error("VITE_LIVEKIT_URL no configurada en el servidor ni en el cliente.");
+      }
+
+      console.log("Conectando a LiveKit en:", liveKitUrl);
+      await room.connect(liveKitUrl, token);
     } catch (error: any) {
       console.error("Error joining stream:", error);
       alert(`Error al conectar con el servidor de video: ${error.message || error}`);

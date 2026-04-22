@@ -112,12 +112,23 @@ export default function Broadcast() {
       const room = new Room();
       roomRef.current = room;
 
-      const liveKitUrl = import.meta.env.VITE_LIVEKIT_URL;
+      let liveKitUrl = import.meta.env.VITE_LIVEKIT_URL;
       if (!liveKitUrl) {
-        throw new Error("VITE_LIVEKIT_URL no configurada en las variables de entorno.");
+        console.log("VITE_LIVEKIT_URL no encontrada en el cliente, obteniendo del servidor...");
+        try {
+          const configRes = await fetch('/api/config');
+          const configData = await configRes.json();
+          liveKitUrl = configData.liveKitUrl;
+        } catch (confErr) {
+          console.error("Error al obtener configuración del servidor:", confErr);
+        }
+      }
+
+      if (!liveKitUrl) {
+        throw new Error("VITE_LIVEKIT_URL no configurada. Por favor, revisa tus variables de entorno en el hosting.");
       }
       
-      console.log("Conectando a LiveKit...");
+      console.log("Conectando a LiveKit en:", liveKitUrl);
       await room.connect(liveKitUrl, token);
       console.log("Conexión establecida.");
 
