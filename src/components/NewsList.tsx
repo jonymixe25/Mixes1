@@ -1,7 +1,7 @@
 import React from "react";
 import { Trash2, Newspaper } from "lucide-react";
 import { deleteDoc, doc } from "firebase/firestore";
-import { db, handleFirestoreError, OperationType } from "../../firebase";
+import { db, handleFirestoreError, OperationType } from "../firebase";
 import toast from "react-hot-toast";
 
 interface NewsItem {

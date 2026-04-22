@@ -129,7 +129,12 @@ export default function Broadcast() {
       }
       
       console.log("Conectando a LiveKit en:", liveKitUrl);
-      await room.connect(liveKitUrl, token);
+      try {
+        await room.connect(liveKitUrl, token);
+      } catch (connErr: any) {
+        console.error("Error de conexión a LiveKit:", connErr);
+        throw new Error(`CONEXION_FALLIDA: No se pudo conectar al servidor de video. Verifica que la URL (${liveKitUrl}) sea correcta y accesible.`);
+      }
       console.log("Conexión establecida.");
 
       // 4. Publicar pistas
@@ -294,6 +299,13 @@ export default function Broadcast() {
               <h2 className="text-2xl font-bold text-white mb-2">Listo para transmitir</h2>
               <p className="text-neutral-400 max-w-xs mb-8">Ingresa un nombre para tu transmisión y presiona el botón para comenzar.</p>
               
+              {!import.meta.env.VITE_LIVEKIT_URL && (
+                <div className="w-full max-w-sm mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-500 text-xs text-left flex gap-2">
+                  <ShieldCheck className="w-4 h-4 flex-shrink-0" />
+                  <p>Aviso: No se detecta URL de LiveKit en el cliente. El servidor intentará proveerla dinámicamente.</p>
+                </div>
+              )}
+
               <div className="w-full max-w-sm space-y-4">
                 <input
                   type="text"

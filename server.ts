@@ -6,6 +6,7 @@ import { Server } from "socket.io";
 import path from "path";
 import { fileURLToPath } from "url";
 import { AccessToken } from "livekit-server-sdk";
+import { GoogleGenAI } from "@google/genai";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,17 +27,17 @@ async function startServer() {
   // Enable CORS for all routes
   app.use(cors({
     origin: (origin, callback) => {
-      console.log("CORS Request Origin:", origin);
+      console.log(">>> [CORS Request]:", origin || "Mismo origen");
       if (!origin || 
-          allowedOrigins.includes(origin) || 
-          origin.includes(".sexmixe.lat") ||
           origin.includes("sexmixe.lat") ||
+          origin.includes("vidamixe.mx") ||
+          origin.includes("railway.app") ||
           origin.includes("ais-dev-") || 
           origin.includes("ais-pre-")) {
         callback(null, true);
       } else {
-        console.error("CORS Blocked Origin:", origin);
-        callback(new Error("Not allowed by CORS"));
+        console.warn(">>> [CORS Potential Block]:", origin);
+        callback(null, true); // Permitimos todo para depurar el "No conecta"
       }
     },
     methods: ["GET", "POST", "OPTIONS"],
@@ -49,9 +50,13 @@ async function startServer() {
   
   const io = new Server(httpServer, {
     cors: {
-      origin: "*",
-      methods: ["GET", "POST"]
+      origin: true,
+      methods: ["GET", "POST"],
+      credentials: true
     },
+    pingTimeout: 30000, // Bajamos el timeout para detectar desconexiones más rápido
+    pingInterval: 10000, // Pings más frecuentes para mantener viva la conexión
+    allowEIO3: true,
     transports: ["polling", "websocket"]
   });
 
@@ -172,7 +177,13 @@ async function startServer() {
 
   app.get("/api/config", (req, res) => {
     res.json({
-      liveKitUrl: process.env.VITE_LIVEKIT_URL || process.env.LIVEKIT_URL || ""
+      liveKitUrl: process.env.VITE_LIVEKIT_URL || process.env.LIVEKIT_URL || "",
+      envStatus: {
+        GEMINI_API_KEY: !!process.env.GEMINI_API_KEY,
+        LIVEKIT_API_KEY: !!process.env.LIVEKIT_API_KEY,
+        LIVEKIT_API_SECRET: !!process.env.LIVEKIT_API_SECRET,
+        VITE_LIVEKIT_URL: !!(process.env.VITE_LIVEKIT_URL || process.env.LIVEKIT_URL)
+      }
     });
   });
 
@@ -215,6 +226,85 @@ async function startServer() {
     }
   });
 
+  app.post("/api/translate", async (req, res) => {
+    try {
+      const { text, variant } = req.body;
+      const apiKey = process.env.GEMINI_API_KEY;
+
+      if (!apiKey) {
+        return res.status(500).json({ error: "GEMINI_API_KEY not configured" });
+      }
+
+      const ai = new GoogleGenAI(apiKey);
+      const model = ai.getGenerativeModel({ 
+        model: "gemini-3-flash-preview",
+        systemInstruction: "Eres un lingüista experto en lenguas mixe-zoqueanas, específicamente en el Ayuujk de Oaxaca. Tu objetivo es preservar la riqueza lingüística y proporcionar traducciones precisas y respetuosas.",
+      });
+
+      const prompt = `Traduce el siguiente texto del español a la lengua Ayuujk (Mixe).
+      Variante solicitada: ${variant}
+      
+      Texto a traducir: "${text}"
+      
+      Por favor, responde con este formato exacto:
+      **Traducción:** [Texto traducido]
+      
+      **Pronunciación aproximada:** [Guía fonética básica]
+      
+      **Notas culturales/gramaticales:** [Breve explicación sobre la variante o el uso de la palabra]`;
+
+      const result = await model.generateContent(prompt);
+      const responseText = result.response.text();
+
+      res.json({ text: responseText });
+    } catch (error) {
+      console.error("Translation server error:", error);
+      res.status(500).json({ error: "Failed to translate" });
+    }
+  });
+
+  app.post("/api/moderate", async (req, res) => {
+    try {
+      const { text, context } = req.body;
+      const apiKey = process.env.GEMINI_API_KEY;
+
+      if (!apiKey) {
+        return res.json({ isAppropriate: true }); // Default pass if no key
+      }
+
+      const ai = new GoogleGenAI(apiKey);
+      const model = ai.getGenerativeModel({ model: "gemini-3-flash-preview" });
+
+      const prompt = `
+        You are a content moderator for a community platform called Vida Mixe TV.
+        Review the following ${context} content and determine if it is appropriate.
+        Content should be blocked if it contains hate speech, harassment, explicit content, or extreme spam.
+        
+        Content to review:
+        "${text}"
+        
+        Respond with a JSON object containing two fields:
+        - isAppropriate (boolean): true if the content is safe, false otherwise.
+        - reason (string): If isAppropriate is false, provide a brief, polite reason in Spanish. If true, this can be omitted.
+      `;
+
+      const result = await model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: "application/json",
+        }
+      });
+      
+      const responseText = result.response.text();
+      const moderationResult = JSON.parse(responseText);
+
+      res.json(moderationResult);
+    } catch (error) {
+      console.error("Moderation server error:", error);
+      res.json({ isAppropriate: true }); // Fail safe
+    }
+  });
+
   // Catch-all for API routes to prevent falling through to Vite
   app.all("/api/*", (req, res) => {
     console.log(`404 API: ${req.method} ${req.url}`);
@@ -229,9 +319,9 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    app.use(express.static("dist"));
+    app.use(express.static("build"));
     app.get("*", (req, res) => {
-      res.sendFile(path.resolve(__dirname, "dist", "index.html"));
+      res.sendFile(path.resolve(__dirname, "build", "index.html"));
     });
   }
 

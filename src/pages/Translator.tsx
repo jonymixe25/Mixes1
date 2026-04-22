@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { GoogleGenAI } from "@google/genai";
 import { Languages, Send, Copy, Check, Info, ArrowRightLeft, Sparkles, Volume2, X } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
 import { Helmet } from "react-helmet-async";
@@ -30,38 +29,34 @@ export default function Translator() {
     setTranslatedText("");
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const selectedVariant = VARIANT_OPTIONS.find(v => v.id === variant);
-
-      const prompt = `Traduce el siguiente texto del español a la lengua Ayuujk (Mixe).
-      Variante solicitada: ${selectedVariant?.name} (${selectedVariant?.description})
       
-      Texto a traducir: "${inputText}"
-      
-      Por favor, responde con este formato exacto:
-      **Traducción:** [Texto traducido]
-      
-      **Pronunciación aproximada:** [Guía fonética básica]
-      
-      **Notas culturales/gramaticales:** [Breve explicación sobre la variante o el uso de la palabra]`;
-
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt,
-        config: {
-          systemInstruction: "Eres un lingüista experto en lenguas mixe-zoqueanas, específicamente en el Ayuujk de Oaxaca. Tu objetivo es preservar la riqueza lingüística y proporcionar traducciones precisas y respetuosas.",
-          temperature: 0.3,
+      const response = await fetch('/api/translate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          text: inputText,
+          variant: `${selectedVariant?.name} (${selectedVariant?.description})`
+        }),
       });
 
-      if (response.text) {
-        setTranslatedText(response.text);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Error al conectar con el servidor de traducción.");
+      }
+
+      const data = await response.json();
+      
+      if (data.text) {
+        setTranslatedText(data.text);
       } else {
         throw new Error("No se recibió respuesta del traductor.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Translation error:", err);
-      setError("Lo sentimos, hubo un problema con la conexión. Por favor, intenta de nuevo.");
+      setError(err.message || "Lo sentimos, hubo un problema con la conexión. Por favor, intenta de nuevo.");
     } finally {
       setIsLoading(false);
     }

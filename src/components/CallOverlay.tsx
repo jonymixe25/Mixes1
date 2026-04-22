@@ -67,8 +67,20 @@ export default function CallOverlay() {
         })
       });
       
-      if (!response.ok) throw new Error("Failed to get token");
+      if (!response.ok) throw new Error("No se pudo obtener el token de acceso.");
       const { token } = await response.json();
+
+      let liveKitUrl = import.meta.env.VITE_LIVEKIT_URL;
+      if (!liveKitUrl) {
+        console.log("Obteniendo URL de LiveKit desde el servidor...");
+        const configRes = await fetch('/api/config');
+        const configData = await configRes.json();
+        liveKitUrl = configData.liveKitUrl;
+      }
+
+      if (!liveKitUrl) {
+        throw new Error("El servidor de video no está configurado (VITE_LIVEKIT_URL faltante).");
+      }
 
       const newRoom = new Room();
       setRoom(newRoom);
@@ -83,7 +95,8 @@ export default function CallOverlay() {
       newRoom.on(RoomEvent.ParticipantConnected, (p) => setRemoteParticipant(p));
       newRoom.on(RoomEvent.ParticipantDisconnected, () => endCall());
 
-      await newRoom.connect(import.meta.env.VITE_LIVEKIT_URL || 'wss://new-app-6tu2ilh8.livekit.cloud', token);
+      console.log("Conectando a LiveKit:", liveKitUrl);
+      await newRoom.connect(liveKitUrl, token);
       
       const tracks = await createLocalTracks({
         audio: true,
@@ -99,8 +112,9 @@ export default function CallOverlay() {
       }
 
       setCall(prev => ({ ...prev, status: "connected", roomName, remoteSocketId }));
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error joining call room:", err);
+      alert(`Error al conectar la llamada: ${err.message}`);
       endCall();
     }
   };

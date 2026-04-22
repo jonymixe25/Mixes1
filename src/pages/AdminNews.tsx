@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Save, Trash2, Plus, Newspaper, User, FileText, Video, Image as ImageIcon, DollarSign, Link as LinkIcon, ShieldAlert, Loader2, Users } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Plus, Newspaper, User, FileText, Video, Image as ImageIcon, DollarSign, Link as LinkIcon, ShieldAlert, Loader2, Users, Settings, CheckCircle2, AlertCircle, Info } from "lucide-react";
 import { moderateContent } from "../services/moderationService";
 import { db, handleFirestoreError, OperationType } from "../firebase";
 import { collection, onSnapshot, addDoc, deleteDoc, doc } from "firebase/firestore";
@@ -41,8 +41,16 @@ export default function AdminNews() {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [videos, setVideos] = useState<CommunityVideo[]>([]);
   const [team, setTeam] = useState<TeamMember[]>([]);
-  const [activeTab, setActiveTab] = useState<"news" | "videos" | "team">("news");
+  const [activeTab, setActiveTab] = useState<"news" | "videos" | "team" | "config">("news");
+  const [config, setConfig] = useState<any>(null);
   const { user, logout } = useUser();
+
+  useEffect(() => {
+    fetch('/api/config')
+      .then(res => res.json())
+      .then(data => setConfig(data))
+      .catch(err => console.error("Error fetching config:", err));
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -276,6 +284,12 @@ export default function AdminNews() {
               className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "team" ? "bg-brand-primary text-white" : "text-neutral-500 hover:text-neutral-300"}`}
             >
               Equipo
+            </button>
+            <button 
+              onClick={() => setActiveTab("config")}
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "config" ? "bg-brand-primary text-white" : "text-neutral-500 hover:text-neutral-300"}`}
+            >
+              Configuración
             </button>
           </div>
         </div>
@@ -527,6 +541,81 @@ export default function AdminNews() {
                   <p className="text-neutral-500">No hay videos publicados aún.</p>
                 </div>
               )}
+            </div>
+          </div>
+        ) : activeTab === "config" ? (
+          <div className="space-y-8">
+            <div className="bg-brand-surface border border-white/5 rounded-3xl p-8">
+              <div className="flex items-center gap-4 mb-8">
+                <div className="w-12 h-12 bg-brand-primary/10 rounded-2xl flex items-center justify-center text-brand-primary">
+                  <Settings className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-white">Configuración del Sistema</h2>
+                  <p className="text-sm text-neutral-500">Monitoreo de variables de entorno y servicios externos.</p>
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                {config?.envStatus ? (
+                  Object.entries(config.envStatus).map(([key, isSet]) => (
+                    <div key={key} className="bg-brand-bg/50 border border-white/5 p-6 rounded-2xl flex items-center justify-between">
+                      <div className="space-y-1">
+                        <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest">{key}</p>
+                        <p className="text-sm font-medium text-white">{isSet ? 'Configurado' : 'No configurado'}</p>
+                      </div>
+                      {isSet ? (
+                        <CheckCircle2 className="w-6 h-6 text-brand-primary" />
+                      ) : (
+                        <AlertCircle className="w-6 h-6 text-red-500" />
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-2 py-12 text-center text-neutral-500">
+                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+                    <p>Cargando estado del servidor...</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-12 p-6 bg-blue-500/5 border border-blue-500/10 rounded-2xl flex gap-4">
+                <Info className="w-6 h-6 text-blue-400 shrink-0" />
+                <div className="space-y-2">
+                  <h4 className="text-blue-400 font-bold text-sm uppercase tracking-wider">¿Cómo configurar?</h4>
+                  <p className="text-xs text-neutral-400 leading-relaxed">
+                    Para activar las funciones de LiveKit (streaming) y Gemini (traducción), debes establecer las variables de entorno correspondientes en el panel de **Settings** de AI Studio. Los cambios requieren un reinicio del servidor para surtir efecto.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-brand-surface border border-white/5 rounded-3xl p-8">
+              <h3 className="text-lg font-bold text-white mb-6">Información de Red</h3>
+              <div className="space-y-4">
+                <div className="flex flex-col gap-2 py-4 border-b border-white/5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-neutral-500">LiveKit WebSocket URL</span>
+                    <span className="text-sm font-mono text-brand-primary">{config?.liveKitUrl || 'No definida'}</span>
+                  </div>
+                  {config?.liveKitUrl && !config.liveKitUrl.startsWith('wss://') && !config.liveKitUrl.startsWith('ws://') && (
+                    <div className="flex items-center gap-2 text-[10px] text-yellow-500 font-bold bg-yellow-500/5 p-2 rounded-lg">
+                      <AlertCircle className="w-3 h-3" />
+                      <span>La URL debe comenzar con wss:// o ws://</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center justify-between py-4 border-b border-white/5">
+                  <span className="text-sm text-neutral-500">Socket.IO Path</span>
+                  <span className="text-sm font-mono text-white">/socket.io</span>
+                </div>
+                <div className="flex items-center justify-between py-4">
+                  <span className="text-sm text-neutral-500">Estado del Servidor</span>
+                  <span className="inline-flex items-center gap-2 px-3 py-1 bg-brand-primary/10 text-brand-primary rounded-full text-[10px] font-black uppercase tracking-widest">
+                    Operacional
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         ) : (

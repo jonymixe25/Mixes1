@@ -149,7 +149,12 @@ export default function View() {
       }
 
       console.log("Conectando a LiveKit en:", liveKitUrl);
-      await room.connect(liveKitUrl, token);
+      try {
+        await room.connect(liveKitUrl, token);
+      } catch (connErr: any) {
+        console.error("Error al conectar a LiveKit:", connErr);
+        throw new Error(`CONEXION_FALLIDA: No se pudo conectar al servidor de video. Verifica que la URL (${liveKitUrl}) sea correcta.`);
+      }
     } catch (error: any) {
       console.error("Error joining stream:", error);
       alert(`Error al conectar con el servidor de video: ${error.message || error}`);

@@ -15,6 +15,7 @@ import Auth from "./pages/Auth";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
+import ConnectionStatus from "./components/ConnectionStatus";
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
         <LanguageProvider>
           <BrowserRouter>
             <div className="min-h-screen bg-brand-bg flex flex-col">
+              <ConnectionStatus />
               <Navbar />
               <main className="flex-1">
                 <Routes>

@@ -1,5 +1,8 @@
 {
-  "name": "Vida Mixe",
-  "description": "Aplicación de transmisión en vivo y radio para la comunidad Mixe",
-  "requestFramePermissions": ["camera", "microphone"]
+  "name": "Vida Mixe TV",
+  "description": "Plataforma oficial de Vida Mixe TV. Transmisiones en vivo, radio, noticias y herramientas bilingües Ayuuk/Español.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
 }
